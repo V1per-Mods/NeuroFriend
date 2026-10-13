@@ -1,0 +1,15 @@
+NeuroFriend 2.1.0 — third-party notices
+
+1. Qwen2.5-3B-Instruct
+Model file: Qwen2.5-3B-Instruct-Q4_K_S.gguf
+Upstream model: https://huggingface.co/Qwen/Qwen2.5-3B-Instruct
+Quantized file source: https://huggingface.co/bartowski/Qwen2.5-3B-Instruct-GGUF
+License: Apache License 2.0
+The model is distributed subject to its upstream license.
+
+2. llama.cpp
+Runtime: llama-server.exe and accompanying runtime libraries from the official ggml-org/llama.cpp Windows CPU release.
+Source: https://github.com/ggml-org/llama.cpp
+License: MIT License. The upstream license is included with the official runtime distribution where provided.
+
+NeuroFriend is an independent project and is not affiliated with the Qwen or llama.cpp maintainers.
