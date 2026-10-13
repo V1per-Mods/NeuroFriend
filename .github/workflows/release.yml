@@ -45,13 +45,14 @@ jobs:
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force -Path bundle\models, bundle\runtime | Out-Null
-          $modelUrl = "https://huggingface.co/bartowski/Qwen2.5-3B-Instruct-GGUF/resolve/main/Qwen2.5-3B-Instruct-Q4_K_S.gguf"
-          curl.exe -L --fail --retry 5 --retry-delay 2 $modelUrl -o "bundle\models\Qwen2.5-3B-Instruct-Q4_K_S.gguf"
-          if ($LASTEXITCODE -ne 0) { throw "Model download failed" }
+          $modelUrl = "https://huggingface.co/bartowski/Qwen2.5-3B-Instruct-GGUF/resolve/main/Qwen2.5-3B-Instruct-Q4_K_S.gguf?download=true"
+          # Hugging Face can rate-limit anonymous hosted runners (HTTP 429); use a longer backoff.
+          curl.exe -L --fail --retry 12 --retry-all-errors --retry-delay 20 --retry-max-time 1800 --user-agent "NeuroFriend-build/2.1.0" $modelUrl -o "bundle\models\Qwen2.5-3B-Instruct-Q4_K_S.gguf"
+          if ($LASTEXITCODE -ne 0) { throw "Model download failed after retries; Hugging Face may still be rate-limiting this runner" }
           $model = Get-Item "bundle\models\Qwen2.5-3B-Instruct-Q4_K_S.gguf"
           if ($model.Length -lt 1000000000) { throw "Downloaded model file is unexpectedly small" }
-          curl.exe -L --fail --retry 5 --retry-delay 2 "https://huggingface.co/Qwen/Qwen2.5-3B-Instruct/resolve/main/LICENSE" -o "bundle\models\QWEN_LICENSE.txt"
-          if ($LASTEXITCODE -ne 0) { throw "Qwen model license download failed" }
+          curl.exe -L --fail --retry 12 --retry-all-errors --retry-delay 10 --retry-max-time 600 --user-agent "NeuroFriend-build/2.1.0" "https://huggingface.co/Qwen/Qwen2.5-3B-Instruct/resolve/main/LICENSE?download=true" -o "bundle\models\QWEN_LICENSE.txt"
+          if ($LASTEXITCODE -ne 0) { throw "Qwen model license download failed after retries" }
           Write-Host ("Model size: {0:N2} GiB" -f ($model.Length / 1GB))
       - name: Download official llama.cpp CPU runtime
         shell: pwsh
