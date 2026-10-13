@@ -48,6 +48,8 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw "Model download failed" }
           $model = Get-Item "bundle\models\Qwen2.5-3B-Instruct-Q4_K_S.gguf"
           if ($model.Length -lt 1000000000) { throw "Downloaded model file is unexpectedly small" }
+          curl.exe -L --fail --retry 5 --retry-delay 2 "https://huggingface.co/Qwen/Qwen2.5-3B-Instruct/resolve/main/LICENSE" -o "bundle\models\QWEN_LICENSE.txt"
+          if ($LASTEXITCODE -ne 0) { throw "Qwen model license download failed" }
           Write-Host ("Model size: {0:N2} GiB" -f ($model.Length / 1GB))
       - name: Download official llama.cpp CPU runtime
         shell: pwsh
@@ -64,6 +66,8 @@ jobs:
           if (-not $server) { throw "llama-server.exe was not found in the runtime archive" }
           Copy-Item -Path (Join-Path $server.Directory.FullName "*") -Destination "bundle\runtime" -Recurse -Force
           if (-not (Test-Path "bundle\runtime\llama-server.exe")) { throw "Runtime assembly failed" }
+          $license = Get-ChildItem -Path llama-runtime -Filter "LICENSE" -Recurse | Select-Object -First 1
+          if ($license) { Copy-Item $license.FullName "bundle\runtime\LLAMA_CPP_LICENSE.txt" }
       - name: Install Inno Setup
         shell: pwsh
         run: |
