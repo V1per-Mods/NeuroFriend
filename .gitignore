@@ -11,3 +11,6 @@ dist/
 neurofriend.db
 .env
 .env.*
+bundle/
+llama-runtime/
+llama-runtime.zip
