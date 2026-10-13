@@ -43,7 +43,7 @@ The repository source mode continues to support Ollama, which is useful for deve
 
 The release workflow builds the application EXE, downloads the quantized GGUF model and official llama.cpp Windows CPU runtime, then packages everything with Inno Setup. Push a v* tag or manually run **Build all-in-one Windows installer** from GitHub Actions. The release job checks that the installer stays below GitHub's 2 GiB per-asset limit.
 
-The local build_exe.bat script builds only the source-mode application EXE; it is not the all-in-one installer. The initial bundled release is being built by GitHub Actions.
+The local build_exe.bat script builds only the source-mode application EXE; it is not the all-in-one installer.
 
 ## Data and privacy
 
