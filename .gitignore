@@ -1,0 +1,21 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+env/
+
+# Build outputs
+build/
+dist/
+*.spec
+
+# Local app data / databases
+neurofriend.db
+*.sqlite
+*.sqlite3
+
+# Secrets and local configuration
+.env
+.env.*
