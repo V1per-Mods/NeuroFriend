@@ -2,9 +2,9 @@
 chcp 65001 >nul
 setlocal
 cd /d "%~dp0"
-title NeuroFriend 2.0.0 - EXE Builder
+title NeuroFriend 2.1.0 - EXE Builder
 echo ==========================================
-echo       NeuroFriend 2.0.0 - EXE Builder
+echo       NeuroFriend 2.1.0 - EXE Builder
 echo ==========================================
 echo.
 set "PY=py -3.13"
@@ -37,7 +37,7 @@ if errorlevel 1 goto error
 if not exist "dist\NeuroFriend.exe" goto error
 echo.
 echo BUILD SUCCESS: %CD%\dist\NeuroFriend.exe
-echo Ollama and the model must be installed separately.
+echo This builds the developer EXE only; the all-in-one installer is built by GitHub Actions.
 start "" "%CD%\dist"
 pause
 exit /b 0
