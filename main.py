@@ -1,20 +1,25 @@
-"""NeuroFriend 2.0.0 — local desktop AI companion for Ollama."""
+"""NeuroFriend 2.1.0 — self-contained local AI companion."""
 from __future__ import annotations
-import json, os, queue, shutil, sqlite3, sys, threading, urllib.error, urllib.request
+import json, os, queue, shutil, sqlite3, subprocess, sys, threading, time, urllib.error, urllib.request
 from datetime import datetime
 from pathlib import Path
 import tkinter as tk
 from tkinter import messagebox, simpledialog, ttk
 
-APP_NAME, APP_VERSION, DEFAULT_MODEL = "NeuroFriend", "2.0.0", "qwen2.5:3b"
+APP_NAME, APP_VERSION, DEFAULT_MODEL = "NeuroFriend", "2.1.0", "qwen2.5:3b"
+BUNDLED_ENDPOINT = "http://127.0.0.1:11435"
+MODEL_FILENAME = "Qwen2.5-3B-Instruct-Q4_K_S.gguf"
+
+def application_directory():
+    return Path(sys.executable).resolve().parent if getattr(sys, "frozen", False) else Path(__file__).resolve().parent
 DEFAULT_ENDPOINT = "http://127.0.0.1:11434"
 BG, SIDEBAR, PANEL, CARD = "#0b1020", "#10182b", "#111d33", "#182640"
 HOVER, TEXT, MUTED, ACCENT = "#223453", "#edf3ff", "#93a3c2", "#8b7cff"
 GREEN, RED, BORDER, USER_BUBBLE = "#5de0b0", "#ff8494", "#293956", "#26365b"
 STRINGS = {
-"ru":{"subtitle":"Твой локальный ИИ-помощник","new":"+ Новый чат","history":"ТВОИ ЧАТЫ","settings":"Настройки","ready":"Готов к общению","working":"NeuroFriend думает…","placeholder":"Напиши сообщение…","send":"Отправить","stop":"Остановить","welcome":"Привет! Я NeuroFriend ✨","welcome_body":"Я работаю через Ollama прямо на твоём компьютере. Можно общаться, разбирать сложные темы, учиться и писать код.","tip":"Для начала установи Ollama и скачай модель:","model":"Модель","language":"Язык интерфейса","endpoint":"Адрес Ollama","save":"Сохранить","check":"Проверить соединение","connected":"Подключение работает","offline":"Ollama не отвечает. Проверь, что приложение запущено.","saved":"Настройки сохранены","rename":"Переименовать","delete":"Удалить чат","delete_q":"Удалить этот чат и все его сообщения?","you":"Ты","assistant":"NeuroFriend","error":"Не удалось получить ответ","empty":"Новый чат","model_missing":"Модель не найдена. Скачай её командой: ollama pull {model}","request_error":"Не удалось связаться с Ollama. Проверь адрес и запуск сервиса.\n\nПодробности: {detail}","thinking":"Думаю…","cancelled":"Генерация остановлена.","copied":"Ответ скопирован","local":"ЛОКАЛЬНЫЙ ИИ","input_hint":"Enter — отправить   ·   Shift+Enter — новая строка","rename_prompt":"Название чата","no_messages":"Пока пусто. Напиши первое сообщение ниже.","endpoint_hint":"Обычно: http://127.0.0.1:11434","theme_note":"История хранится на этом компьютере.","check_running":"Проверяю…","no_answer":"Модель вернула пустой ответ."},
-"uk":{"subtitle":"Твій локальний ШІ-помічник","new":"+ Новий чат","history":"ТВОЇ ЧАТИ","settings":"Налаштування","ready":"Готовий до спілкування","working":"NeuroFriend думає…","placeholder":"Напиши повідомлення…","send":"Надіслати","stop":"Зупинити","welcome":"Привіт! Я NeuroFriend ✨","welcome_body":"Я працюю через Ollama прямо на твоєму комп’ютері. Можемо спілкуватися, вчитися, розбирати складні теми та писати код.","tip":"Спочатку встанови Ollama та завантаж модель:","model":"Модель","language":"Мова інтерфейсу","endpoint":"Адреса Ollama","save":"Зберегти","check":"Перевірити з’єднання","connected":"З’єднання працює","offline":"Ollama не відповідає. Перевір, чи запущено Ollama.","saved":"Налаштування збережено","rename":"Перейменувати","delete":"Видалити чат","delete_q":"Видалити цей чат і всі його повідомлення?","you":"Ти","assistant":"NeuroFriend","error":"Не вдалося отримати відповідь","empty":"Новий чат","model_missing":"Модель не знайдена. Завантаж її командою: ollama pull {model}","request_error":"Не вдалося зв’язатися з Ollama. Перевір адресу та сервіс.\n\nДеталі: {detail}","thinking":"Думаю…","cancelled":"Генерацію зупинено.","copied":"Відповідь скопійовано","local":"ЛОКАЛЬНИЙ ШІ","input_hint":"Enter — надіслати   ·   Shift+Enter — новий рядок","rename_prompt":"Назва чату","no_messages":"Поки порожньо. Напиши перше повідомлення нижче.","endpoint_hint":"Зазвичай: http://127.0.0.1:11434","theme_note":"Історія зберігається на цьому комп’ютері.","check_running":"Перевіряю…","no_answer":"Модель повернула порожню відповідь."},
-"en":{"subtitle":"Your local AI companion","new":"+ New chat","history":"YOUR CHATS","settings":"Settings","ready":"Ready to chat","working":"NeuroFriend is thinking…","placeholder":"Message NeuroFriend…","send":"Send","stop":"Stop","welcome":"Hey! I'm NeuroFriend ✨","welcome_body":"I run through Ollama right on your computer. Chat with me, explore tricky topics, study, brainstorm, or work on code.","tip":"First install Ollama and download a model:","model":"Model","language":"Interface language","endpoint":"Ollama address","save":"Save settings","check":"Check connection","connected":"Connection is working","offline":"Ollama is not responding. Make sure it is running.","saved":"Settings saved","rename":"Rename chat","delete":"Delete chat","delete_q":"Delete this chat and all its messages?","you":"You","assistant":"NeuroFriend","error":"Could not get a response","empty":"New chat","model_missing":"Model not found. Download it with: ollama pull {model}","request_error":"Could not connect to Ollama. Check the address and service.\n\nDetails: {detail}","thinking":"Thinking…","cancelled":"Generation stopped.","copied":"Response copied","local":"LOCAL AI","input_hint":"Enter — send   ·   Shift+Enter — new line","rename_prompt":"Chat title","no_messages":"Nothing here yet. Send your first message below.","endpoint_hint":"Usually: http://127.0.0.1:11434","theme_note":"Chat history is stored on this computer.","check_running":"Checking…","no_answer":"The model returned an empty response."}
+"ru":{"subtitle":"Твой локальный ИИ-помощник","new":"+ Новый чат","history":"ТВОИ ЧАТЫ","settings":"Настройки","ready":"Готов к общению","working":"NeuroFriend думает…","placeholder":"Напиши сообщение…","send":"Отправить","stop":"Остановить","welcome":"Привет! Я NeuroFriend ✨","welcome_body":"Я запускаю ИИ локально на твоём компьютере. Модель и движок уже входят в установщик — интернет для общения не нужен.","tip":"Модель уже включена в NeuroFriend. Просто напиши сообщение ниже!","model":"Модель","language":"Язык интерфейса","endpoint":"Адрес Ollama","save":"Сохранить","check":"Проверить соединение","connected":"Подключение работает","offline":"Ollama не отвечает. Проверь, что приложение запущено.","saved":"Настройки сохранены","rename":"Переименовать","delete":"Удалить чат","delete_q":"Удалить этот чат и все его сообщения?","you":"Ты","assistant":"NeuroFriend","error":"Не удалось получить ответ","empty":"Новый чат","model_missing":"Модель не найдена. Скачай её командой: ollama pull {model}","request_error":"Не удалось связаться с Ollama. Проверь адрес и запуск сервиса.\n\nПодробности: {detail}","thinking":"Думаю…","cancelled":"Генерация остановлена.","copied":"Ответ скопирован","local":"ЛОКАЛЬНЫЙ ИИ","input_hint":"Enter — отправить   ·   Shift+Enter — новая строка","rename_prompt":"Название чата","no_messages":"Пока пусто. Напиши первое сообщение ниже.","endpoint_hint":"Встроенный локальный адрес; обычно менять не нужно.","theme_note":"История хранится на этом компьютере.","check_running":"Проверяю…","no_answer":"Модель вернула пустой ответ."},
+"uk":{"subtitle":"Твій локальний ШІ-помічник","new":"+ Новий чат","history":"ТВОЇ ЧАТИ","settings":"Налаштування","ready":"Готовий до спілкування","working":"NeuroFriend думає…","placeholder":"Напиши повідомлення…","send":"Надіслати","stop":"Зупинити","welcome":"Привіт! Я NeuroFriend ✨","welcome_body":"Я запускаю ШІ локально на твоєму комп’ютері. Модель і рушій уже входять до інсталятора — інтернет для спілкування не потрібен.","tip":"Модель уже входить до NeuroFriend. Просто напиши повідомлення нижче!","model":"Модель","language":"Мова інтерфейсу","endpoint":"Адреса Ollama","save":"Зберегти","check":"Перевірити з’єднання","connected":"З’єднання працює","offline":"Ollama не відповідає. Перевір, чи запущено Ollama.","saved":"Налаштування збережено","rename":"Перейменувати","delete":"Видалити чат","delete_q":"Видалити цей чат і всі його повідомлення?","you":"Ти","assistant":"NeuroFriend","error":"Не вдалося отримати відповідь","empty":"Новий чат","model_missing":"Модель не знайдена. Завантаж її командою: ollama pull {model}","request_error":"Не вдалося зв’язатися з Ollama. Перевір адресу та сервіс.\n\nДеталі: {detail}","thinking":"Думаю…","cancelled":"Генерацію зупинено.","copied":"Відповідь скопійовано","local":"ЛОКАЛЬНИЙ ШІ","input_hint":"Enter — надіслати   ·   Shift+Enter — новий рядок","rename_prompt":"Назва чату","no_messages":"Поки порожньо. Напиши перше повідомлення нижче.","endpoint_hint":"Вбудована локальна адреса; зазвичай змінювати не потрібно.","theme_note":"Історія зберігається на цьому комп’ютері.","check_running":"Перевіряю…","no_answer":"Модель повернула порожню відповідь."},
+"en":{"subtitle":"Your local AI companion","new":"+ New chat","history":"YOUR CHATS","settings":"Settings","ready":"Ready to chat","working":"NeuroFriend is thinking…","placeholder":"Message NeuroFriend…","send":"Send","stop":"Stop","welcome":"Hey! I'm NeuroFriend ✨","welcome_body":"The AI runs locally on your computer. The model and runtime are included in the installer, so chatting does not need an internet connection.","tip":"The model is included. Just send a message below!","model":"Model","language":"Interface language","endpoint":"Ollama address","save":"Save settings","check":"Check connection","connected":"Connection is working","offline":"Ollama is not responding. Make sure it is running.","saved":"Settings saved","rename":"Rename chat","delete":"Delete chat","delete_q":"Delete this chat and all its messages?","you":"You","assistant":"NeuroFriend","error":"Could not get a response","empty":"New chat","model_missing":"Model not found. Download it with: ollama pull {model}","request_error":"Could not connect to Ollama. Check the address and service.\n\nDetails: {detail}","thinking":"Thinking…","cancelled":"Generation stopped.","copied":"Response copied","local":"LOCAL AI","input_hint":"Enter — send   ·   Shift+Enter — new line","rename_prompt":"Chat title","no_messages":"Nothing here yet. Send your first message below.","endpoint_hint":"Built-in local address; usually no need to change it.","theme_note":"Chat history is stored on this computer.","check_running":"Checking…","no_answer":"The model returned an empty response."}
 }
 
 def data_directory():
@@ -67,10 +72,14 @@ class NeuroFriendApp:
     def __init__(self,root):
         self.root=root; self.store=Store(); self.lang=self.store.get("language","ru")
         if self.lang not in STRINGS: self.lang="ru"
-        self.model=self.store.get("model",DEFAULT_MODEL); self.endpoint=self.store.get("endpoint",DEFAULT_ENDPOINT).rstrip("/")
-        self.current_chat=None; self.busy=False; self.cancel_event=threading.Event(); self.events=queue.Queue(); self.active_response=None
+        self.bundle_root=application_directory(); self.model_path=self.bundle_root / "models" / MODEL_FILENAME; self.server_path=self.bundle_root / "runtime" / "llama-server.exe"
+        self.bundled=self.model_path.is_file() and self.server_path.is_file()
+        self.model="Qwen2.5-3B-Instruct-Q4_K_S" if self.bundled else self.store.get("model",DEFAULT_MODEL)
+        self.endpoint=BUNDLED_ENDPOINT if self.bundled else self.store.get("endpoint",DEFAULT_ENDPOINT).rstrip("/")
+        self.server_process=None; self.current_chat=None; self.busy=False; self.cancel_event=threading.Event(); self.events=queue.Queue(); self.active_response=None
         self.root.title(f"{APP_NAME} {APP_VERSION}"); self.root.geometry("1240x820"); self.root.minsize(850,580); self.root.configure(bg=BG)
         self.root.protocol("WM_DELETE_WINDOW",self.close); self._build()
+        if self.bundled: self.model_badge.configure(text=" Qwen2.5 3B · Q4_K_S ")
         chats=self.store.chats()
         self.open_chat(chats[0][0]) if chats else self.new_chat()
         self._set_status(self.t("ready")); self._poll_events()
@@ -206,21 +215,67 @@ class NeuroFriendApp:
         system=("You are NeuroFriend, a helpful and friendly AI companion. Be warm, respectful, honest and useful. "
                 "Do not pretend to be human. Reply in the user's language; interface language: "+lang_name+
                 ". Give clear, age-appropriate explanations. Use Markdown when helpful.")
-        payload={"model":self.model,"messages":[{"role":"system","content":system}]+[{"role":r,"content":c} for r,c in history if r in ("user","assistant")],"stream":True,"options":{"temperature":0.7}}
+        payload={"model":"NeuroFriend" if self.bundled else self.model,"messages":[{"role":"system","content":system}]+[{"role":r,"content":c} for r,c in history if r in ("user","assistant")],"stream":True,"temperature":0.7} if self.bundled else {"model":self.model,"messages":[{"role":"system","content":system}]+[{"role":r,"content":c} for r,c in history if r in ("user","assistant")],"stream":True,"options":{"temperature":0.7}}
         threading.Thread(target=self._request_worker,args=(payload,cid,body),daemon=True).start()
+    def _ensure_bundled_server(self):
+        if not self.bundled:
+            return
+        health_url=self.endpoint+"/health"
+        try:
+            with urllib.request.urlopen(health_url,timeout=2):
+                return
+        except Exception:
+            pass
+        if self.server_process is None or self.server_process.poll() is not None:
+            creationflags=getattr(subprocess,"CREATE_NO_WINDOW",0) if os.name=="nt" else 0
+            self.server_process=subprocess.Popen(
+                [str(self.server_path),"-m",str(self.model_path),"--host","127.0.0.1","--port","11435","--ctx-size","4096","--n-gpu-layers","0"],
+                cwd=str(self.server_path.parent),stdin=subprocess.DEVNULL,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,
+                creationflags=creationflags
+            )
+        deadline=time.monotonic()+240
+        while time.monotonic()<deadline:
+            if self.cancel_event.is_set():
+                raise RuntimeError("Generation cancelled")
+            if self.server_process.poll() is not None:
+                raise RuntimeError("The bundled local AI engine stopped unexpectedly.")
+            try:
+                with urllib.request.urlopen(health_url,timeout=2):
+                    return
+            except Exception:
+                time.sleep(1)
+        raise RuntimeError("The local model is taking too long to start. Check available RAM and try again.")
+
     def _request_worker(self,payload,cid,body):
         answer=""; response=None
         try:
-            req=urllib.request.Request(self.endpoint+"/api/chat",data=json.dumps(payload).encode("utf-8"),headers={"Content-Type":"application/json"},method="POST")
-            response=urllib.request.urlopen(req,timeout=300); self.active_response=response
+            if self.bundled:
+                self._ensure_bundled_server()
+                request_url=self.endpoint+"/v1/chat/completions"
+            else:
+                request_url=self.endpoint+"/api/chat"
+            req=urllib.request.Request(request_url,data=json.dumps(payload).encode("utf-8"),headers={"Content-Type":"application/json"},method="POST")
+            response=urllib.request.urlopen(req,timeout=1800); self.active_response=response
             for line in response:
                 if self.cancel_event.is_set(): break
                 if not line.strip(): continue
-                packet=json.loads(line.decode("utf-8"))
-                if packet.get("error"): raise RuntimeError(packet["error"])
-                answer+=packet.get("message",{}).get("content","")
+                decoded=line.decode("utf-8").strip()
+                if self.bundled:
+                    if decoded.startswith("data:"):
+                        decoded=decoded[5:].strip()
+                    if decoded=="[DONE]":
+                        break
+                    packet=json.loads(decoded)
+                    if packet.get("error"): raise RuntimeError(str(packet["error"]))
+                    choices=packet.get("choices",[])
+                    if choices:
+                        answer+=choices[0].get("delta",{}).get("content","")
+                else:
+                    packet=json.loads(decoded)
+                    if packet.get("error"): raise RuntimeError(packet["error"])
+                    answer+=packet.get("message",{}).get("content","")
+                    if packet.get("done"): break
                 if answer: self.events.put(("stream",cid,body,answer))
-                if packet.get("done"): break
             self.events.put(("cancelled" if self.cancel_event.is_set() else "done",cid,body,answer.strip()))
         except urllib.error.HTTPError as exc:
             if self.cancel_event.is_set():
@@ -280,25 +335,31 @@ class NeuroFriendApp:
         self._label(win,self.t("endpoint"),bg=BG,fg=MUTED,size=10).pack(anchor="w",padx=26)
         endpoint_var=tk.StringVar(value=self.endpoint); endpoint_entry=tk.Entry(win,textvariable=endpoint_var,bg=PANEL,fg=TEXT,insertbackground=TEXT,relief="flat",font=("Segoe UI",11),bd=0)
         endpoint_entry.pack(fill="x",padx=26,pady=(7,4),ipady=10)
+        if self.bundled:
+            model_entry.configure(state="disabled"); endpoint_entry.configure(state="disabled")
         self._label(win,self.t("endpoint_hint"),bg=BG,fg="#657594",size=8).pack(anchor="w",padx=26)
         result=self._label(win,"",bg=BG,fg=GREEN,size=9); result.pack(anchor="w",padx=26,pady=(12,0))
         buttons=tk.Frame(win,bg=BG); buttons.pack(fill="x",padx=26,pady=22)
         def check():
-            result.configure(text=self.t("check_running"),fg=MUTED); endpoint=endpoint_var.get().strip().rstrip("/")
+            result.configure(text=self.t("check_running"),fg=MUTED); endpoint=self.endpoint if self.bundled else endpoint_var.get().strip().rstrip("/")
             def worker():
                 try:
-                    with urllib.request.urlopen(endpoint+"/api/tags",timeout=4) as r: data=json.loads(r.read().decode("utf-8"))
-                    names=[m.get("name","") for m in data.get("models",[])]
+                    with urllib.request.urlopen(endpoint+("/health" if self.bundled else "/api/tags"),timeout=4) as r:
+                        raw=r.read(); data={} if self.bundled else json.loads(raw.decode("utf-8"))
+                    names=[] if self.bundled else [m.get("name","") for m in data.get("models",[])]
                     msg=self.t("connected")+(f" · {len(names)} models" if names else "")
                     self.root.after(0,lambda:result.configure(text=msg,fg=GREEN))
                 except Exception: self.root.after(0,lambda:result.configure(text=self.t("offline"),fg=RED))
             threading.Thread(target=worker,daemon=True).start()
         def save():
-            endpoint=endpoint_var.get().strip().rstrip("/")
-            if not endpoint.startswith(("http://","https://")):
+            endpoint=self.endpoint if self.bundled else endpoint_var.get().strip().rstrip("/")
+            if not self.bundled and not endpoint.startswith(("http://","https://")):
                 messagebox.showerror(self.t("settings"),"URL must start with http:// or https://",parent=win); return
-            self.lang=lang_var.get(); self.model=model_var.get().strip() or DEFAULT_MODEL; self.endpoint=endpoint
-            self.store.set("language",self.lang); self.store.set("model",self.model); self.store.set("endpoint",self.endpoint)
+            self.lang=lang_var.get()
+            if not self.bundled:
+                self.model=model_var.get().strip() or DEFAULT_MODEL; self.endpoint=endpoint
+                self.store.set("model",self.model); self.store.set("endpoint",self.endpoint)
+            self.store.set("language",self.lang)
             self._rebuild_ui_text(); win.destroy(); self._set_status(self.t("saved"))
         self._button(buttons,self.t("check"),check).pack(side="left"); self._button(buttons,self.t("save"),save,True).pack(side="right")
     def _rebuild_ui_text(self):
@@ -313,6 +374,9 @@ class NeuroFriendApp:
         except Exception: pass
         try: self.store.close()
         except Exception: pass
+        if self.server_process and self.server_process.poll() is None:
+            try: self.server_process.terminate()
+            except OSError: pass
         self.root.destroy()
 
 def main():
