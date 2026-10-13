@@ -5,6 +5,12 @@ on:
     branches: [main]
     tags: ["v*"]
   workflow_dispatch:
+    inputs:
+      publish_release:
+        description: "Publish NeuroFriend v2.0.0 as a GitHub Release"
+        required: true
+        type: boolean
+        default: true
 
 permissions:
   contents: write
@@ -35,9 +41,12 @@ jobs:
           if-no-files-found: error
           retention-days: 30
       - name: Publish GitHub Release
-        if: startsWith(github.ref, 'refs/tags/v')
+        if: startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'workflow_dispatch' && inputs.publish_release)
         uses: softprops/action-gh-release@v2
         with:
-          name: NeuroFriend \${{ github.ref_name }}
+          name: NeuroFriend ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || 'v2.0.0' }}
+          tag_name: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || 'v2.0.0' }}
+          target_commitish: ${{ github.sha }}
           generate_release_notes: true
+          overwrite_files: true
           files: dist/NeuroFriend.exe
