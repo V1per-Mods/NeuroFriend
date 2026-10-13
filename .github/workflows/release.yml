@@ -54,23 +54,20 @@ jobs:
           curl.exe -L --fail --retry 12 --retry-all-errors --retry-delay 10 --retry-max-time 600 --user-agent "NeuroFriend-build/2.1.0" "https://huggingface.co/Qwen/Qwen2.5-3B-Instruct/resolve/main/LICENSE?download=true" -o "bundle\models\QWEN_LICENSE.txt"
           if ($LASTEXITCODE -ne 0) { throw "Qwen model license download failed after retries" }
           Write-Host ("Model size: {0:N2} GiB" -f ($model.Length / 1GB))
-      - name: Download official llama.cpp CPU runtime
+      - name: Build official llama.cpp CPU runtime
         shell: pwsh
         run: |
-          $headers = @{ "User-Agent" = "NeuroFriend-build" }
-          $release = Invoke-RestMethod -Headers $headers -Uri "https://api.github.com/repos/ggml-org/llama.cpp/releases/latest"
-          $asset = $release.assets | Where-Object { $_.name -match "bin-win-cpu-x64\.zip$" } | Select-Object -First 1
-          if (-not $asset) { throw "Could not find the official llama.cpp Windows x64 CPU runtime asset" }
-          Write-Host ("Using llama.cpp release asset: " + $asset.name)
-          curl.exe -L --fail --retry 5 --retry-delay 2 $asset.browser_download_url -o llama-runtime.zip
-          if ($LASTEXITCODE -ne 0) { throw "llama.cpp runtime download failed" }
-          Expand-Archive -Path llama-runtime.zip -DestinationPath llama-runtime -Force
-          $server = Get-ChildItem -Path llama-runtime -Filter "llama-server.exe" -Recurse | Select-Object -First 1
-          if (-not $server) { throw "llama-server.exe was not found in the runtime archive" }
+          git clone --depth 1 https://github.com/ggml-org/llama.cpp.git llama-runtime-src
+          if ($LASTEXITCODE -ne 0) { throw "llama.cpp source download failed" }
+          cmake -S llama-runtime-src -B llama-runtime-src\build -A x64 -DLLAMA_BUILD_SERVER=ON -DGGML_NATIVE=OFF -DCMAKE_BUILD_TYPE=Release
+          if ($LASTEXITCODE -ne 0) { throw "llama.cpp CMake configuration failed" }
+          cmake --build llama-runtime-src\build --config Release --target llama-server --parallel 4
+          if ($LASTEXITCODE -ne 0) { throw "llama.cpp CPU runtime build failed" }
+          $server = Get-ChildItem -Path llama-runtime-src\build -Filter "llama-server.exe" -Recurse | Where-Object { $_.FullName -match "[\\/]bin[\\/]" } | Select-Object -First 1
+          if (-not $server) { throw "Built llama-server.exe was not found" }
           Copy-Item -Path (Join-Path $server.Directory.FullName "*") -Destination "bundle\runtime" -Recurse -Force
           if (-not (Test-Path "bundle\runtime\llama-server.exe")) { throw "Runtime assembly failed" }
-          $license = Get-ChildItem -Path llama-runtime -Filter "LICENSE" -Recurse | Select-Object -First 1
-          if ($license) { Copy-Item $license.FullName "bundle\runtime\LLAMA_CPP_LICENSE.txt" }
+          if (Test-Path "llama-runtime-src\LICENSE") { Copy-Item "llama-runtime-src\LICENSE" "bundle\runtime\LLAMA_CPP_LICENSE.txt" }
       - name: Install Inno Setup
         shell: pwsh
         run: |
