@@ -31,6 +31,7 @@ Name: "desktopicon"; Description: "Create a desktop shortcut"; GroupDescription:
 Source: "dist\NeuroFriend.exe"; DestDir: "{app}"; Flags: ignoreversion
 Source: "bundle\runtime\*"; DestDir: "{app}\runtime"; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "bundle\models\Qwen2.5-3B-Instruct-Q4_K_S.gguf"; DestDir: "{app}\models"; Flags: ignoreversion
+Source: "bundle\models\QWEN_LICENSE.txt"; DestDir: "{app}\models"; Flags: ignoreversion
 Source: "THIRD_PARTY_NOTICES.txt"; DestDir: "{app}"; Flags: ignoreversion
 
 [Icons]
