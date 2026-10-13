@@ -2,6 +2,7 @@ name: Build all-in-one Windows installer
 
 on:
   push:
+    branches: [main]
     tags: ["v*"]
   workflow_dispatch:
     inputs:
@@ -16,6 +17,7 @@ permissions:
 
 jobs:
   build-installer:
+    if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && startsWith(github.event.head_commit.message, 'Build bundled NeuroFriend release'))
     runs-on: windows-latest
     timeout-minutes: 360
     steps:
@@ -89,7 +91,7 @@ jobs:
           if-no-files-found: error
           retention-days: 7
       - name: Publish GitHub Release
-        if: startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'workflow_dispatch' && inputs.publish_release)
+        if: startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'workflow_dispatch' && inputs.publish_release) || (github.event_name == 'push' && startsWith(github.event.head_commit.message, 'Build bundled NeuroFriend release'))
         uses: softprops/action-gh-release@v2
         with:
           name: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || 'v2.1.0' }}
