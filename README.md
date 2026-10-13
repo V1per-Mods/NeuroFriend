@@ -1,56 +1,60 @@
-# NeuroFriend
+# NeuroFriend 2.0.0
 
-A local AI desktop companion for Windows, built with Python and Tkinter and powered by [Ollama](https://ollama.com/). NeuroFriend stores chat history locally and does not require a paid cloud API key.
+**A local-first desktop AI companion for Windows, powered by Ollama.**
 
-## Features
+NeuroFriend provides a dark chat interface while running a model on your computer. The application uses Python's standard library; no cloud API key is required.
 
-- Dark desktop interface
-- Multiple conversations with locally stored history
-- Russian, Ukrainian, and English interface options
-- Connects to a model running through Ollama
-- Windows EXE build script
+## What's new in 2.0.0
+
+- Redesigned dark UI with a clearer sidebar, chat header, message cards, and composer.
+- Streaming responses from Ollama.
+- Stop-generation control and copy-response buttons.
+- Configurable model and Ollama endpoint.
+- Improved handling of connection errors, missing models, empty replies, and invalid endpoint URLs.
+- Chat history moved to a per-user application-data directory; an old working-directory database is migrated on first launch when possible.
+- SQLite foreign-key enforcement and safer chat deletion.
+- Automated tests and a Windows EXE build workflow.
+- Fixed the EXE builder so it exits with an error instead of printing a false success message.
+
+## Download
+
+Visit the [Releases page](https://github.com/V1per-Mods/NeuroFriend/releases) for a Windows executable. The GitHub Actions workflow builds NeuroFriend.exe when a v* tag is pushed. Builds from the default branch are also available as Actions artifacts.
 
 ## Requirements
 
-- Windows 10 or 11
+- Windows 10/11
 - [Ollama for Windows](https://ollama.com/download/windows)
-- A model downloaded in Ollama, such as `qwen2.5:3b`
-- Python 3.12 or 3.13 to run from source; use a supported Python version for PyInstaller builds
+- A model installed locally, for example qwen2.5:3b
+
+Download a model once:
+
+    ollama pull qwen2.5:3b
 
 ## Run from source
 
-1. Install Python from [python.org](https://www.python.org/downloads/windows/).
-2. Install Ollama and start it.
-3. Download a model:
-   ```bat
-   ollama pull qwen2.5:3b
-   ```
-4. Clone or download this repository.
-5. Run `run.bat` or execute:
-   ```bat
-   python main.py
-   ```
+1. Install Python 3.12 or 3.13.
+2. Install and start Ollama.
+3. Clone or download this repository.
+4. Double-click run.bat or run: python main.py
 
-No third-party Python packages are needed to run the source version.
+The app only uses Python's standard library.
 
-## Build a Windows executable
+## Build the EXE locally
 
-Run `build_exe.bat`. It checks for Python 3.13 or 3.12, installs/updates PyInstaller, and builds `dist\\NeuroFriend.exe`.
+Double-click build_exe.bat. It checks the source, installs PyInstaller, and verifies the EXE exists before reporting success.
 
-The EXE contains the application, **not Ollama or the language model**. Ollama must be installed and running on the target computer, and the model must be downloaded separately. On first run, Windows SmartScreen may warn because the executable is not code-signed.
+## Data and privacy
 
-## Local data and privacy
+Chat history and settings are stored in %LOCALAPPDATA%/NeuroFriend/neurofriend.db on Windows, or ~/.local/share/NeuroFriend/neurofriend.db on Linux/macOS (unless XDG_DATA_HOME is set).
 
-Chat history is stored locally under `%LOCALAPPDATA%\\NeuroFriend\\neurofriend.db`. The app sends prompts to the Ollama service running on your computer. Ollama may need an internet connection to download models and updates. Avoid entering passwords or other sensitive information into any AI chat.
+Prompts are sent to the Ollama endpoint configured in settings. The default is http://127.0.0.1:11434. Ollama and the model are not bundled into the EXE. Avoid entering passwords or sensitive personal information into AI chats.
 
-## Model selection
+## Tests
 
-The default model is `qwen2.5:3b`. To use another model, download it with Ollama (for example, `ollama pull llama3.2:3b`) and choose its exact model name in the app's settings.
+    python -m unittest discover -s tests -v
 
 ## License
 
-This project is licensed under the MIT License. See [LICENSE](LICENSE).
+MIT. See LICENSE.
 
-## Disclaimer
-
-This is an independent community project and is not affiliated with or endorsed by Alibaba Cloud, Ollama, Microsoft, or OpenAI. Model names and trademarks belong to their respective owners.
+NeuroFriend is an independent project and is not affiliated with Ollama or the makers of any AI model.
