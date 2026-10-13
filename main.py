@@ -223,8 +223,15 @@ class NeuroFriendApp:
                 if packet.get("done"): break
             self.events.put(("cancelled" if self.cancel_event.is_set() else "done",cid,body,answer.strip()))
         except urllib.error.HTTPError as exc:
-            detail=exc.read().decode("utf-8","replace")[:500]; self.events.put(("error",cid,body,detail))
-        except Exception as exc: self.events.put(("error",cid,body,str(exc)))
+            if self.cancel_event.is_set():
+                self.events.put(("cancelled",cid,body,answer.strip()))
+            else:
+                detail=exc.read().decode("utf-8","replace")[:500]; self.events.put(("error",cid,body,detail))
+        except Exception as exc:
+            if self.cancel_event.is_set():
+                self.events.put(("cancelled",cid,body,answer.strip()))
+            else:
+                self.events.put(("error",cid,body,str(exc)))
         finally:
             if response:
                 try: response.close()
