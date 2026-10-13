@@ -1,13 +1,12 @@
-name: Build Windows release
+name: Build all-in-one Windows installer
 
 on:
   push:
-    branches: [main]
     tags: ["v*"]
   workflow_dispatch:
     inputs:
       publish_release:
-        description: "Publish NeuroFriend v2.0.0 as a GitHub Release"
+        description: "Publish the all-in-one installer as a GitHub Release"
         required: true
         type: boolean
         default: true
@@ -16,8 +15,9 @@ permissions:
   contents: write
 
 jobs:
-  build-windows:
+  build-installer:
     runs-on: windows-latest
+    timeout-minutes: 360
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -25,28 +25,72 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.13"
-      - name: Compile source
-        run: python -m compileall -q main.py
-      - name: Run tests
-        run: python -m unittest discover -s tests -v
-      - name: Install PyInstaller
-        run: python -m pip install --upgrade pip pyinstaller
-      - name: Build EXE
-        run: python -m PyInstaller --noconfirm --clean --onefile --windowed --name NeuroFriend main.py
-      - name: Upload build artifact
+      - name: Compile source and run tests
+        shell: pwsh
+        run: |
+          python -m compileall -q main.py
+          if ($LASTEXITCODE -ne 0) { throw "Python compilation failed" }
+          python -m unittest discover -s tests -v
+          if ($LASTEXITCODE -ne 0) { throw "Unit tests failed" }
+      - name: Build application executable
+        shell: pwsh
+        run: |
+          python -m pip install --upgrade pip pyinstaller
+          if ($LASTEXITCODE -ne 0) { throw "PyInstaller install failed" }
+          python -m PyInstaller --noconfirm --clean --onefile --windowed --name NeuroFriend main.py
+          if ($LASTEXITCODE -ne 0) { throw "Application EXE build failed" }
+      - name: Download the quantized Qwen model
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path bundle\models, bundle\runtime | Out-Null
+          $modelUrl = "https://huggingface.co/bartowski/Qwen2.5-3B-Instruct-GGUF/resolve/main/Qwen2.5-3B-Instruct-Q4_K_S.gguf"
+          curl.exe -L --fail --retry 5 --retry-delay 2 $modelUrl -o "bundle\models\Qwen2.5-3B-Instruct-Q4_K_S.gguf"
+          if ($LASTEXITCODE -ne 0) { throw "Model download failed" }
+          $model = Get-Item "bundle\models\Qwen2.5-3B-Instruct-Q4_K_S.gguf"
+          if ($model.Length -lt 1000000000) { throw "Downloaded model file is unexpectedly small" }
+          Write-Host ("Model size: {0:N2} GiB" -f ($model.Length / 1GB))
+      - name: Download official llama.cpp CPU runtime
+        shell: pwsh
+        run: |
+          $headers = @{ "User-Agent" = "NeuroFriend-build" }
+          $release = Invoke-RestMethod -Headers $headers -Uri "https://api.github.com/repos/ggml-org/llama.cpp/releases/latest"
+          $asset = $release.assets | Where-Object { $_.name -match "bin-win-cpu-x64\.zip$" } | Select-Object -First 1
+          if (-not $asset) { throw "Could not find the official llama.cpp Windows x64 CPU runtime asset" }
+          Write-Host ("Using llama.cpp release asset: " + $asset.name)
+          curl.exe -L --fail --retry 5 --retry-delay 2 $asset.browser_download_url -o llama-runtime.zip
+          if ($LASTEXITCODE -ne 0) { throw "llama.cpp runtime download failed" }
+          Expand-Archive -Path llama-runtime.zip -DestinationPath llama-runtime -Force
+          $server = Get-ChildItem -Path llama-runtime -Filter "llama-server.exe" -Recurse | Select-Object -First 1
+          if (-not $server) { throw "llama-server.exe was not found in the runtime archive" }
+          Copy-Item -Path (Join-Path $server.Directory.FullName "*") -Destination "bundle\runtime" -Recurse -Force
+          if (-not (Test-Path "bundle\runtime\llama-server.exe")) { throw "Runtime assembly failed" }
+      - name: Install Inno Setup
+        shell: pwsh
+        run: |
+          choco install innosetup --no-progress -y
+          if ($LASTEXITCODE -ne 0) { throw "Inno Setup installation failed" }
+      - name: Build one-file installer
+        shell: pwsh
+        run: |
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" /Qp setup.iss
+          if ($LASTEXITCODE -ne 0) { throw "Inno Setup compilation failed" }
+          $installer = Get-Item "dist\NeuroFriend-Setup.exe"
+          if ($installer.Length -gt 2147483648) { throw "Installer exceeds GitHub Release's 2 GiB per-asset limit" }
+          Write-Host ("Installer size: {0:N2} GiB" -f ($installer.Length / 1GB))
+      - name: Upload installer artifact
         uses: actions/upload-artifact@v4
         with:
-          name: NeuroFriend-Windows
-          path: dist/NeuroFriend.exe
+          name: NeuroFriend-All-in-One-Installer
+          path: dist/NeuroFriend-Setup.exe
           if-no-files-found: error
-          retention-days: 30
+          retention-days: 7
       - name: Publish GitHub Release
         if: startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'workflow_dispatch' && inputs.publish_release)
         uses: softprops/action-gh-release@v2
         with:
-          name: NeuroFriend ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || 'v2.0.0' }}
-          tag_name: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || 'v2.0.0' }}
+          name: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || 'v2.1.0' }}
+          tag_name: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || 'v2.1.0' }}
           target_commitish: ${{ github.sha }}
           generate_release_notes: true
           overwrite_files: true
-          files: dist/NeuroFriend.exe
+          files: dist/NeuroFriend-Setup.exe
