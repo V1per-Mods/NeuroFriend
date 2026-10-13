@@ -1,60 +1,62 @@
-# NeuroFriend 2.0.0
+# NeuroFriend 2.1.0
 
-**A local-first desktop AI companion for Windows, powered by Ollama.**
+**A local-first desktop AI companion for Windows, with an all-in-one installer.**
 
-NeuroFriend provides a dark chat interface while running a model on your computer. The application uses Python's standard library; no cloud API key is required.
+NeuroFriend has a dark chat interface, chat history, streaming replies, stop-generation and copy controls. The all-in-one installer includes a quantized Qwen2.5-3B-Instruct model and the llama.cpp CPU runtime. You do not need to install Python, Ollama, or download a model separately.
 
-## What's new in 2.0.0
+## Download and install
 
-- Redesigned dark UI with a clearer sidebar, chat header, message cards, and composer.
-- Streaming responses from Ollama.
-- Stop-generation control and copy-response buttons.
-- Configurable model and Ollama endpoint.
-- Improved handling of connection errors, missing models, empty replies, and invalid endpoint URLs.
-- Chat history moved to a per-user application-data directory; an old working-directory database is migrated on first launch when possible.
-- SQLite foreign-key enforcement and safer chat deletion.
-- Automated tests and a Windows EXE build workflow.
-- Fixed the EXE builder so it exits with an error instead of printing a false success message.
+1. Open the [GitHub Releases page](https://github.com/V1per-Mods/NeuroFriend/releases).
+2. Download **NeuroFriend-Setup.exe**.
+3. Run the installer and finish setup.
+4. Launch NeuroFriend from the Start menu or desktop shortcut.
+5. Send a message. The first reply can take a little while because the local model needs to load.
 
-## Download
+The installer is large (roughly 1.8–2.0 GB) because the AI model is included. Once downloaded and installed, the model runs locally and does not need an internet connection for chatting.
 
-Visit the [Releases page](https://github.com/V1per-Mods/NeuroFriend/releases) for a Windows executable. The GitHub Actions workflow builds NeuroFriend.exe when a v* tag is pushed. Builds from the default branch are also available as Actions artifacts.
+## System requirements
 
-## Requirements
+- Windows 10/11, 64-bit
+- 8 GB RAM recommended; more RAM helps with multitasking
+- Enough free disk space for the installer and installed model
+- CPU inference is used for broad compatibility; response speed depends on your processor
 
-- Windows 10/11
-- [Ollama for Windows](https://ollama.com/download/windows)
-- A model installed locally, for example qwen2.5:3b
+## What's new in 2.1.0
 
-Download a model once:
+- All-in-one Windows installer that includes the app, Qwen2.5-3B-Instruct Q4_K_S model, and llama.cpp runtime.
+- No manual Ollama/Python/model setup for release users.
+- Local model server starts automatically on first use and shuts down with NeuroFriend.
+- Model and endpoint controls are locked for the bundled build; interface language remains configurable.
+- Added third-party notices and a separate lightweight CI workflow.
 
-    ollama pull qwen2.5:3b
+## Run from source (developer mode)
 
-## Run from source
+The repository source mode continues to support Ollama, which is useful for development and choosing other models.
 
 1. Install Python 3.12 or 3.13.
-2. Install and start Ollama.
-3. Clone or download this repository.
-4. Double-click run.bat or run: python main.py
+2. Install and start [Ollama for Windows](https://ollama.com/download/windows).
+3. Download a model once, for example: ollama pull qwen2.5:3b.
+4. Clone or download this repository.
+5. Double-click run.bat or run python main.py.
 
-The app only uses Python's standard library.
+## Build the all-in-one installer
 
-## Build the EXE locally
+The release workflow builds the application EXE, downloads the quantized GGUF model and official llama.cpp Windows CPU runtime, then packages everything with Inno Setup. Push a v* tag or manually run **Build all-in-one Windows installer** from GitHub Actions. The release job checks that the installer stays below GitHub's 2 GiB per-asset limit.
 
-Double-click build_exe.bat. It checks the source, installs PyInstaller, and verifies the EXE exists before reporting success.
+The local build_exe.bat script builds only the source-mode application EXE; it is not the all-in-one installer.
 
 ## Data and privacy
 
 Chat history and settings are stored in %LOCALAPPDATA%/NeuroFriend/neurofriend.db on Windows, or ~/.local/share/NeuroFriend/neurofriend.db on Linux/macOS (unless XDG_DATA_HOME is set).
 
-Prompts are sent to the Ollama endpoint configured in settings. The default is http://127.0.0.1:11434. Ollama and the model are not bundled into the EXE. Avoid entering passwords or sensitive personal information into AI chats.
+In the all-in-one Windows build, prompts are sent to the local llama.cpp server bound to 127.0.0.1 on this computer. No cloud API is used by default. In source mode, prompts are sent to the Ollama endpoint configured in settings. Avoid entering passwords or sensitive personal information into AI chats.
 
 ## Tests
 
-    python -m unittest discover -s tests -v
+Run python -m unittest discover -s tests -v.
 
-## License
+## Licenses
 
-MIT. See LICENSE.
+NeuroFriend source code is MIT licensed; see LICENSE. The bundled Qwen model and llama.cpp runtime are third-party components under their own licenses; see THIRD_PARTY_NOTICES.txt and the included upstream model license.
 
-NeuroFriend is an independent project and is not affiliated with Ollama or the makers of any AI model.
+NeuroFriend is an independent project and is not affiliated with Ollama, Qwen, or the llama.cpp maintainers.
