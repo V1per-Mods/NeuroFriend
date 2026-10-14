@@ -1,0 +1,45 @@
+name: Build NeuroFriend Lite
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "main.py"
+      - ".github/workflows/lite-release.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-lite:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Compile source
+        shell: pwsh
+        run: python -m compileall -q main.py
+
+      - name: Build NeuroFriend Lite
+        shell: pwsh
+        run: |
+          python -m pip install --upgrade pip pyinstaller
+          python -m PyInstaller --noconfirm --clean --onefile --windowed --name NeuroFriend-Lite main.py
+          if (-not (Test-Path "dist\NeuroFriend-Lite.exe")) { throw "Lite executable was not created" }
+          Write-Host ("Lite size: {0:N2} MiB" -f ((Get-Item "dist\NeuroFriend-Lite.exe").Length / 1MB))
+
+      - name: Upload Lite executable
+        uses: actions/upload-artifact@v4
+        with:
+          name: NeuroFriend-Lite
+          path: dist/NeuroFriend-Lite.exe
+          if-no-files-found: error
+          retention-days: 30
