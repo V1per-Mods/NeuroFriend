@@ -2,10 +2,8 @@ name: Build NeuroFriend Lite
 
 on:
   push:
-    branches: [main]
-    paths:
-      - "main.py"
-      - ".github/workflows/lite-release.yml"
+    branches:
+      - main
   workflow_dispatch:
 
 permissions:
@@ -24,9 +22,15 @@ jobs:
         with:
           python-version: "3.13"
 
+      - name: Enable web research and project identity
+        shell: pwsh
+        run: |
+          python build_patch.py
+          if ($LASTEXITCODE -ne 0) { throw "NeuroFriend Lite patch failed" }
+
       - name: Compile source
         shell: pwsh
-        run: python -m compileall -q main.py
+        run: python -m compileall -q main.py web_search.py
 
       - name: Build NeuroFriend Lite
         shell: pwsh
